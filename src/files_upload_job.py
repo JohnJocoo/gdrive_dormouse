@@ -13,6 +13,7 @@ import fcntl
 import shutil
 from functools import reduce
 import logging
+from os.path import join as fs_join
 
 
 PathExceptions = List[str]
@@ -54,8 +55,8 @@ class FilesUploadJob:
         self._total_size    = 0
         self._drive         = drive
         self._job_id        = job_id
-        self._lock_path     = os.path.abspath(local_src_path + '/.lock')
-        self._src_path      = os.path.abspath(local_src_path + '/data')
+        self._lock_path     = os.path.abspath(fs_join(local_src_path, '.lock'))
+        self._src_path      = os.path.abspath(fs_join(local_src_path, 'data'))
         self._dst_path      = drive_dst_path
         self._callback      = feedback_callback
         self._state         = FilesUploadSM()
