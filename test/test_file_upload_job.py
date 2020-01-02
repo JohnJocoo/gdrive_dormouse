@@ -6,11 +6,13 @@ import string
 import os
 from os.path import join as fs_join
 import shutil
+import fcntl
 from ddt import ddt, data
 from GDriveFileMock import GDriveFileMock
 from GDriveMock import GDriveMock
 from GAuthMock import GAuthMock
 from CommandCallbackMock import CommandCallbackMock
+from files_upload_sm import Command
 
 
 @ddt
@@ -115,6 +117,21 @@ class TestFilesUploadJob(unittest.TestCase):
         callback = CommandCallbackMock()
         job = FilesUploadJob(drive, job_id, job_dir, dst_dir, callback)
         return job, drive, callback
+        
+    def _mock_side_effects_handlers(self, job):
+        job.commands_history_mocked = []
+        
+        def call_callback(callback, cmd, data):
+            job.commands_history_mocked.append(cmd)
+            return callback(cmd, data)
+        
+        def mocked_cb(callback):
+            return lambda cmd, data: call_callback(callback, cmd, data)
+        
+        h_map = job._side_effects_handlers_map
+        new_map = {cmd: mocked_cb(cb) for cmd, cb in h_map.items()}
+        job._side_effects_handlers_map = new_map
+        return job
 
     def setUp(self):
         data_dir = self._get_data_dir()
@@ -135,4 +152,88 @@ class TestFilesUploadJob(unittest.TestCase):
         files_expected = set([f for f, t in fs_list if t == 'file'])
         files = set([f for f, _ in list_result])
         self.assertEqual(files, files_expected)
+        self._delete_job(job_id)
+        
+    def test_lock_taken(self):
+        job_id, data_dir, _ = self._create_job('empty')
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        lock_path = fs_join(os.path.dirname(data_dir), '.lock')
+        lock = open(lock_path, 'w')
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        job._run_impl()
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        lock.close()
+        self.assertEqual(job.commands_history_mocked, 
+                         [Command.lock_job, Command.release_sm])
+        drive.auth.Refresh.assert_not_called()
+        drive.CreateFile.assert_not_called()
+        drive.ListFile.assert_not_called()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        self._delete_job(job_id)
+        
+    def test_session_refresh(self):
+        job_id, _, _ = self._create_job('empty')
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        drive.auth.access_token_expired = True
+        job._run_impl()
+        drive.auth.Refresh.assert_called()
+        self.assertEqual(job.commands_history_mocked, 
+                         [Command.lock_job, Command.open_session, 
+                          Command.close_session, Command.remove_data, 
+                          Command.unlock_job, Command.remove_job, 
+                          Command.release_sm])
+        drive.CreateFile.assert_not_called()
+        drive.ListFile.assert_not_called()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        self._delete_job(job_id)
+        
+    @data('empty', 'one_file', 'mixed')
+    def test_success_flow(self, scenario):
+        job_id, _, fs_list = self._create_job(scenario)
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history[:2], [Command.lock_job, 
+                                       Command.open_session])
+        self.assertEqual(history[-5:], [Command.close_session, 
+                                        Command.remove_data, 
+                                        Command.unlock_job, 
+                                        Command.remove_job, 
+                                        Command.release_sm])
+        if len(fs_list) > 0:
+            self.assertEqual(set(history[2:-5]), 
+                             set([Command.upload_file, 
+                                  Command.release_file]))
+        if len(fs_list) > 0:
+            drive.CreateFile.assert_called()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
+        
+    def test_upload_fail_flow(self):
+        pass
+        
+    def test_upload_fail_once_flow(self):
+        pass
+        
+    def test_spaces_detection(self):
+        job_id, _, _ = self._create_job('empty')
+        job, _, _ = self._create_default_upload_job(job_id)
+        spaces = job._get_gdrive_spaces('/tmp/file.txt')
+        self.assertEqual(spaces, ['drive'])
+        spaces = job._get_gdrive_spaces('/tmp/IMG_0342.JPG')
+        self.assertEqual(set(spaces), set(['drive', 'photos']))
+        spaces = job._get_gdrive_spaces('/tmp/IMG_0342.jpeg')
+        self.assertEqual(set(spaces), set(['drive', 'photos']))
+        spaces = job._get_gdrive_spaces('/tmp/my_cat.png')
+        self.assertEqual(set(spaces), set(['drive', 'photos']))
+        spaces = job._get_gdrive_spaces('/tmp/my_cat.01.spain.jpg')
+        self.assertEqual(set(spaces), set(['drive', 'photos']))
+        spaces = job._get_gdrive_spaces('/tmp/file_pict')
+        self.assertEqual(spaces, ['drive'])
+        spaces = job._get_gdrive_spaces('/tmp/my_cat.jpg.zip')
+        self.assertEqual(spaces, ['drive'])
         self._delete_job(job_id)

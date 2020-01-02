@@ -55,8 +55,10 @@ class FilesUploadJob:
         self._total_size    = 0
         self._drive         = drive
         self._job_id        = job_id
-        self._lock_path     = os.path.abspath(fs_join(local_src_path, '.lock'))
-        self._src_path      = os.path.abspath(fs_join(local_src_path, 'data'))
+        self._lock_path     = os.path.abspath(fs_join(local_src_path, 
+                                                      '.lock'))
+        self._src_path      = os.path.abspath(fs_join(local_src_path, 
+                                                      'data'))
         self._dst_path      = drive_dst_path
         self._callback      = feedback_callback
         self._state         = FilesUploadSM()
@@ -64,7 +66,8 @@ class FilesUploadJob:
         self._lock          = None
         self._retry_state   = None
         self._relative_gdirs= {}
-        self._photo_exts   = set(['jpg', 'jpeg', 'png', 'tif', 'tiff'])
+        self._photo_exts   = set(['jpg', 'jpeg', 'png', 
+                                  'gif', 'tif', 'tiff'])
         
         self._side_effects_handlers_map = {
             Command.lock_job      : self._lock_job,

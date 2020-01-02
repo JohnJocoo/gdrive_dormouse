@@ -1,5 +1,5 @@
 from unittest.mock import Mock, MagicMock
-from GDriveFileMock import GDriveFileMock
+from GDriveFileMock import GDriveFileMock, ListFileResult
 
 
 class GDriveMock:
@@ -17,4 +17,4 @@ class GDriveMock:
             return GDriveFileMock(metadata)
         
         self.CreateFile.side_effect = create_file
-        self.ListFile.return_value = []
+        self.ListFile.return_value = ListFileResult()
