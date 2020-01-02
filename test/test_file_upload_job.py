@@ -6,8 +6,14 @@ import string
 import os
 from os.path import join as fs_join
 import shutil
+from ddt import ddt, data
+from GDriveFileMock import GDriveFileMock
+from GDriveMock import GDriveMock
+from GAuthMock import GAuthMock
+from CommandCallbackMock import CommandCallbackMock
 
 
+@ddt
 class TestFilesUploadJob(unittest.TestCase):
     _data_dir = 'tmp_test_data'
     
@@ -24,11 +30,11 @@ class TestFilesUploadJob(unittest.TestCase):
             pass
             
     def _create_file(self, path, data):
-        with open(path, 'w') as f:
+        with open(path, 'w+') as f:
             f.write(data)
             
     def _create_random_file(self, path, size = 256):
-        letters = string.ascii
+        letters = string.ascii_lowercase
         data = ''.join(random.choice(letters) for i in range(size))
         self._create_file(path, data)
 
@@ -38,16 +44,17 @@ class TestFilesUploadJob(unittest.TestCase):
         os.makedirs(job_dir)
         self._touch(fs_join(job_dir, '.lock'))
         data_dir = fs_join(job_dir, 'data')
-        return job_id, data_dir
+        os.makedirs(data_dir)
+        return job_id, data_dir, []
         
     def _create_job_one_file(self):
-        job_id, data_dir = self._create_job_empty()
+        job_id, data_dir, _ = self._create_job_empty()
         file_path = fs_join(data_dir, 'cool_file.txt')
         self._create_random_file(file_path)
         return job_id, data_dir, [(file_path, 'file')]
         
     def _create_job_mixed(self):
-        job_id, data_dir = self._create_job_empty()
+        job_id, data_dir, _ = self._create_job_empty()
         
         dir1 = fs_join(data_dir, 'personal')
         dir2 = fs_join(dir1, 'photos')
@@ -93,10 +100,21 @@ class TestFilesUploadJob(unittest.TestCase):
                        (file7,  'file'),
                        (file8,  'file')]
         return job_id, data_dir, result_list
+    
+    def _create_job(self, scenario):
+        func = getattr(self, '_create_job_' + scenario)
+        return func()
         
     def _delete_job(self, job_id):
         job_dir = fs_join(self._get_data_dir(), job_id)
         shutil.rmtree(job_dir, ignore_errors=True)
+
+    def _create_default_upload_job(self, job_id, dst_dir = ''):
+        drive = GDriveMock(GAuthMock())
+        job_dir = fs_join(self._get_data_dir(), job_id)
+        callback = CommandCallbackMock()
+        job = FilesUploadJob(drive, job_id, job_dir, dst_dir, callback)
+        return job, drive, callback
 
     def setUp(self):
         data_dir = self._get_data_dir()
@@ -108,4 +126,13 @@ class TestFilesUploadJob(unittest.TestCase):
         data_dir = self._get_data_dir()
         if os.path.exists(data_dir):
             shutil.rmtree(data_dir, ignore_errors=False)
-    
+            
+    @data('empty', 'one_file', 'mixed')
+    def test_list(self, scenario):
+        job_id, data_dir, fs_list = self._create_job(scenario)
+        job, _, _ = self._create_default_upload_job(job_id)
+        list_result = job._list_recursive(data_dir)
+        files_expected = set([f for f, t in fs_list if t == 'file'])
+        files = set([f for f, _ in list_result])
+        self.assertEqual(files, files_expected)
+        self._delete_job(job_id)

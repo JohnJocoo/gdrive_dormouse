@@ -1,13 +1,16 @@
-from unittest.mock import MagicMock
+from unittest.mock import Mock, MagicMock
 from GDriveFileMock import GDriveFileMock
 
 
-class GDriveMock(MagicMock):
+class GDriveMock:
 
     def __init__(self, auth=None):
         self.auth = auth
         #self.CreateFile = (metadata: dict<opt>) -> GDriveFileMock
         #self.ListFile   = (param: dict<opt>) -> List[GDriveFileMock]
+    
+        self.CreateFile = MagicMock()
+        self.ListFile = MagicMock()
     
         def create_file(*args, **kwargs):
             metadata = kwargs.get('metadata', {})

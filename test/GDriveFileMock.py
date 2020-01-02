@@ -1,12 +1,15 @@
-from unittest.mock import MagicMock
+from unittest.mock import Mock, MagicMock
 
 
-class GDriveFileMock(MagicMock):
+class GDriveFileMock:
 
     def __init__(self, dict_items = {}):
         self.__dict_items = dict_items
         #self.SetContentFile = (path: str<req>) -> void
         #self.Upload         = (opts: dict<opt>) -> void <raise ApiRequestError>
+        
+        self.SetContentFile = MagicMock()
+        self.Upload = MagicMock()
         
         self.SetContentFile.return_value = None
         self.Upload.return_value = None

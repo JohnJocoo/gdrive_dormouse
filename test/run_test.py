@@ -6,6 +6,7 @@ sys.path.append('../src')
 
 from test_file_uploader_sub_sm import *
 from test_file_uploader import *
+from test_file_upload_job import *
 
 
 logger = logging.getLogger()
