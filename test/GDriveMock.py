@@ -13,7 +13,7 @@ class GDriveMock:
         self.ListFile = MagicMock()
     
         def create_file(*args, **kwargs):
-            metadata = kwargs.get('metadata', {})
+            metadata = args[0]
             return GDriveFileMock(metadata)
         
         self.CreateFile.side_effect = create_file

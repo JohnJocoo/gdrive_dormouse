@@ -29,6 +29,9 @@ class GDriveFileMock:
 
     def set_item(self, key, value):
         self.__dict_items[key] = value
+        
+    def has_item(self, key):
+        return key in self.__dict_items
 
 
 class ListFileResult:

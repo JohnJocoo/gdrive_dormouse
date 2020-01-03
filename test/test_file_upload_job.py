@@ -213,6 +213,44 @@ class TestFilesUploadJob(unittest.TestCase):
         drive.auth.Refresh.assert_not_called()
         self._delete_job(job_id)
         
+    def test_success_flow_detailed(self):
+        job_id, _, fs_list = self._create_job('one_file')
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        self.assertEqual(len(fs_list), 1)
+        file_path, _ = fs_list[0]
+        created_files = []
+        create_file_saved_se = drive.CreateFile.side_effect
+        
+        def create_file_se(*args, **kwargs):
+            mock_file = create_file_saved_se(*args, **kwargs)
+            created_files.append(mock_file)
+            return mock_file
+        
+        drive.CreateFile.side_effect = create_file_se
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history, [Command.lock_job, 
+                                   Command.open_session,
+                                   Command.upload_file,
+                                   Command.release_file,
+                                   Command.close_session, 
+                                   Command.remove_data, 
+                                   Command.unlock_job, 
+                                   Command.remove_job, 
+                                   Command.release_sm])
+        drive.CreateFile.assert_called_once()
+        self.assertEqual(len(created_files), 1)
+        created_file = created_files[0]
+        self.assertEqual(created_file['title'], 'cool_file.txt')
+        self.assertEqual(created_file['spaces'], ['drive'])
+        self.assertFalse(created_file.has_item('parents'))
+        created_file.SetContentFile.assert_called_once_with(file_path)
+        created_file.Upload.assert_called_once()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
+        
     def test_upload_fail_flow(self):
         pass
         
