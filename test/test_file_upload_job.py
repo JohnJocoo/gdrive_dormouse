@@ -8,7 +8,7 @@ from os.path import join as fs_join
 import shutil
 import fcntl
 from ddt import ddt, data
-from GDriveFileMock import GDriveFileMock
+from GDriveFileMock import GDriveFileMock, ListFileResult
 from GDriveMock import GDriveMock
 from GAuthMock import GAuthMock
 from CommandCallbackMock import CommandCallbackMock
@@ -245,6 +245,56 @@ class TestFilesUploadJob(unittest.TestCase):
         self.assertEqual(created_file['title'], 'cool_file.txt')
         self.assertEqual(created_file['spaces'], ['drive'])
         self.assertFalse(created_file.has_item('parents'))
+        created_file.SetContentFile.assert_called_once_with(file_path)
+        created_file.Upload.assert_called_once()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
+        
+    def test_success_flow_detailed_one_dir(self):
+        job_id, data_dir, _ = self._create_job_empty()
+        dir1_path = fs_join(data_dir, 'photos')
+        file_path = fs_join(dir1_path, 'IMG_0345.jpg')
+        os.makedirs(dir1_path)
+        self._create_random_file(file_path, 820000)
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        created_files = []
+        create_file_saved_se = drive.CreateFile.side_effect
+        
+        def create_file_se(*args, **kwargs):
+            mock_file = create_file_saved_se(*args, **kwargs)
+            created_files.append(mock_file)
+            return mock_file
+        
+        drive.CreateFile.side_effect = create_file_se
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history, [Command.lock_job, 
+                                   Command.open_session,
+                                   Command.upload_file,
+                                   Command.release_file,
+                                   Command.close_session, 
+                                   Command.remove_data, 
+                                   Command.unlock_job, 
+                                   Command.remove_job, 
+                                   Command.release_sm])
+        drive.CreateFile.assert_called()
+        self.assertEqual(len(created_files), 2)
+        created_dir = created_files[0]
+        created_file = created_files[1]
+        self.assertEqual(created_dir['title'], 'photos')
+        self.assertEqual(created_dir['mimeType'], 
+                         'application/vnd.google-apps.folder')
+        self.assertEqual(created_dir['parents'], 
+                         [{'kind': 'drive#fileLink', 'id': 'root'}])
+        self.assertEqual(created_file['title'], 'IMG_0345.jpg')
+        self.assertEqual(set(created_file['spaces']), 
+                         set(['drive', 'photos']))
+        self.assertEqual(created_file['parents'], 
+                         [{'kind': 'drive#fileLink', 
+                           'id': created_dir['id']}])
+        created_dir.Upload.assert_called_once()
         created_file.SetContentFile.assert_called_once_with(file_path)
         created_file.Upload.assert_called_once()
         callback.called.assert_called_once_with(FeedbackCommand.release, None)
