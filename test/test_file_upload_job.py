@@ -134,6 +134,7 @@ class TestFilesUploadJob(unittest.TestCase):
         return job
 
     def setUp(self):
+        log.info('\n\nTest TestFilesUploadJob.%s started', self._testMethodName)
         data_dir = self._get_data_dir()
         if os.path.exists(data_dir):
             shutil.rmtree(data_dir, ignore_errors=False)
@@ -251,7 +252,7 @@ class TestFilesUploadJob(unittest.TestCase):
         drive.auth.Refresh.assert_not_called()
         self._delete_job(job_id)
         
-    def test_success_flow_detailed_one_dir(self):
+    def test_success_flow_detailed_one_dir_non_exist(self):
         job_id, data_dir, _ = self._create_job_empty()
         dir1_path = fs_join(data_dir, 'photos')
         file_path = fs_join(dir1_path, 'IMG_0345.jpg')
@@ -295,6 +296,54 @@ class TestFilesUploadJob(unittest.TestCase):
                          [{'kind': 'drive#fileLink', 
                            'id': created_dir['id']}])
         created_dir.Upload.assert_called_once()
+        created_file.SetContentFile.assert_called_once_with(file_path)
+        created_file.Upload.assert_called_once()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
+        
+    def test_success_flow_detailed_one_dir_exist(self):
+        job_id, data_dir, _ = self._create_job_empty()
+        dir1_path = fs_join(data_dir, 'photo_dir')
+        file_path = fs_join(dir1_path, 'IMG_0346.jpg')
+        os.makedirs(dir1_path)
+        self._create_random_file(file_path, 800000)
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        created_files = []
+        create_file_saved_se = drive.CreateFile.side_effect
+        drive.ListFile.return_value = ListFileResult([
+                            GDriveFileMock({'id': 'dir96786',
+                                            'title': 'photo_dir'}),
+                            GDriveFileMock({'id': 'dir96787',
+                                            'title': 'photos'})])
+        
+        def create_file_se(*args, **kwargs):
+            mock_file = create_file_saved_se(*args, **kwargs)
+            created_files.append(mock_file)
+            return mock_file
+        
+        drive.CreateFile.side_effect = create_file_se
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history, [Command.lock_job, 
+                                   Command.open_session,
+                                   Command.upload_file,
+                                   Command.release_file,
+                                   Command.close_session, 
+                                   Command.remove_data, 
+                                   Command.unlock_job, 
+                                   Command.remove_job, 
+                                   Command.release_sm])
+        drive.CreateFile.assert_called()
+        self.assertEqual(len(created_files), 1)
+        created_file = created_files[0]
+        self.assertEqual(created_file['title'], 'IMG_0346.jpg')
+        self.assertEqual(set(created_file['spaces']), 
+                         set(['drive', 'photos']))
+        self.assertEqual(created_file['parents'], 
+                         [{'kind': 'drive#fileLink', 
+                           'id': 'dir96786'}])
         created_file.SetContentFile.assert_called_once_with(file_path)
         created_file.Upload.assert_called_once()
         callback.called.assert_called_once_with(FeedbackCommand.release, None)
