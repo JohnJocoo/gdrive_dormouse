@@ -82,6 +82,7 @@ class FilesUploadJob:
             Command.release_sm    : self._release_sm}
         
         self._thread        = Thread(name=_name, target=self._run)
+        self._canceled		= False
         
     @property
     def progress(self):
@@ -135,7 +136,7 @@ class FilesUploadJob:
         
     def _loop_side_effects(self, entry_side_effects):
         side_effects = entry_side_effects
-        while len(side_effects) > 0:
+        while len(side_effects) > 0 and not self._canceled:
             se = self._process_side_effects(side_effects)
             side_effects = se
             
@@ -269,7 +270,8 @@ class FilesUploadJob:
         return self._state.file_uploaded(path)
         
     def _cancel(self):
-        self._log.warn('cancel not implemented')
+        self._log.warn('hard canceling job')
+        self._canceled = True
         
     def _free_lock(self):
         if self._lock is None:
