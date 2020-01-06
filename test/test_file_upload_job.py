@@ -13,6 +13,7 @@ from GDriveMock import GDriveMock
 from GAuthMock import GAuthMock
 from CommandCallbackMock import CommandCallbackMock
 from files_upload_sm import Command
+from pydrive.files import ApiRequestError
 
 
 @ddt
@@ -351,10 +352,101 @@ class TestFilesUploadJob(unittest.TestCase):
         self._delete_job(job_id)
         
     def test_upload_fail_flow(self):
-        pass
+        job_id, _, fs_list = self._create_job('one_file')
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        self.assertEqual(len(fs_list), 1)
+        file_path, _ = fs_list[0]
+        created_files = []
+        create_file_saved_se = drive.CreateFile.side_effect
+        
+        def create_file_se(*args, **kwargs):
+            mock_file = create_file_saved_se(*args, **kwargs)
+            
+            def throw_always(*args, **kwargs):
+                raise ApiRequestError('testing')
+                    
+            mock_file.Upload.side_effect = throw_always
+            created_files.append(mock_file)
+            return mock_file
+        
+        drive.CreateFile.side_effect = create_file_se
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history[:3], [Command.lock_job, 
+                                       Command.open_session,
+                                       Command.upload_file])
+        self.assertEqual(history[-4:], [Command.close_session, 
+                                        Command.unlock_job,  
+                                        Command.schedule_retry,
+                                        Command.release_sm])
+        drive.CreateFile.assert_called()
+        self.assertTrue(len(created_files) >= 1)
+        created_file = created_files[-1]
+        self.assertEqual(created_file['title'], 'cool_file.txt')
+        self.assertEqual(created_file['spaces'], ['drive'])
+        self.assertFalse(created_file.has_item('parents'))
+        created_file.SetContentFile.assert_called_with(file_path)
+        created_file.Upload.assert_called()
+        callback.called.assert_called()
+        self.assertEqual(callback.called.call_count, 2)
+        first_call, _ = callback.called.call_args_list[0]
+        first_call_cmd, _ = first_call 
+        second_call, _ = callback.called.call_args_list[1]
+        second_call_cmd, _ = second_call
+        self.assertEqual(first_call_cmd, FeedbackCommand.schedule_retry)
+        self.assertEqual(second_call_cmd, FeedbackCommand.release)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
         
     def test_upload_fail_once_flow(self):
-        pass
+        job_id, _, fs_list = self._create_job('one_file')
+        job, drive, callback = self._create_default_upload_job(job_id)
+        job = self._mock_side_effects_handlers(job)
+        self.assertEqual(len(fs_list), 1)
+        file_path, _ = fs_list[0]
+        created_files = []
+        create_file_saved_se = drive.CreateFile.side_effect
+        throw_dict = {'_test_throw': True}
+        
+        def create_file_se(*args, **kwargs):
+            mock_file = create_file_saved_se(*args, **kwargs)
+            upload_saved_se = mock_file.Upload.side_effect
+            
+            def throw_once(*args, **kwargs):
+                if throw_dict['_test_throw']:
+                    throw_dict['_test_throw'] = False
+                    raise ApiRequestError('testing')
+                upload_saved_se(*args, **kwargs)
+                    
+            mock_file.Upload.side_effect = throw_once
+            created_files.append(mock_file)
+            return mock_file
+        
+        drive.CreateFile.side_effect = create_file_se
+        job._run_impl()
+        history = job.commands_history_mocked
+        self.assertEqual(history, [Command.lock_job, 
+                                   Command.open_session,
+                                   Command.upload_file,
+                                   Command.upload_file,
+                                   Command.release_file,
+                                   Command.close_session, 
+                                   Command.remove_data, 
+                                   Command.unlock_job, 
+                                   Command.remove_job, 
+                                   Command.release_sm])
+        drive.CreateFile.assert_called()
+        self.assertTrue(len(created_files) >= 1)
+        created_file = created_files[-1]
+        self.assertEqual(created_file['title'], 'cool_file.txt')
+        self.assertEqual(created_file['spaces'], ['drive'])
+        self.assertFalse(created_file.has_item('parents'))
+        created_file.SetContentFile.assert_called_with(file_path)
+        created_file.Upload.assert_called()
+        callback.called.assert_called_once_with(FeedbackCommand.release, None)
+        drive.auth.Refresh.assert_not_called()
+        self._delete_job(job_id)
         
     def test_spaces_detection(self):
         job_id, _, _ = self._create_job('empty')

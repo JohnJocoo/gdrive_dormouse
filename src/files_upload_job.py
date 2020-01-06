@@ -6,7 +6,7 @@ from files_upload_sm import ScheduleData, UploadData
 from files_upload_sm import CommandData, SideEffect, SideEffects
 from pydrive.drive import GoogleDrive
 from pydrive.auth import RefreshError
-from pydrive.files import ApiRequestError
+from pydrive.files import ApiRequestError, FileNotUploadedError
 from threading import Thread
 import os
 import fcntl
@@ -220,7 +220,7 @@ class FilesUploadJob:
         self._log.info('uploading file %s', path)
         try:
             return self._upload_file_impl(path, drive)
-        except ApiRequestError as e:
+        except (ApiRequestError, FileNotUploadedError) as e:
             self._log.error('error uploading file %s', str(e))
             self._clear_gdrive_dir()
             return self._state.file_upload_failed(path)
