@@ -124,6 +124,9 @@ class FilesUploadJob:
             
     def _run_first(self):
         file_list = self._list_recursive(self._src_path)
+        self._total_files = len(file_list)
+        self._total_size = reduce(lambda x, y: x + y, 
+                                  [sz for _, sz in file_list], 0)
         self._log.debug('job listed following files for upload:')
         for path, _ in file_list:
             self._log.debug(path)
