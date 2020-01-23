@@ -11,10 +11,11 @@ class App extends React.Component {
       "settings.monitoring.path": "~/Pictures",
       "settings.monitoring.wait_time": 5,
       "settings.gdrive.path": "/GDriveDormouse",
-      "mysettings.general.email": "dstuecken@react-settings-pane.com",
-      "mysettings.general.picture": "earth",
-      "mysettings.profile.firstname": "Dennis",
-      "mysettings.profile.lastname": "Stücken"
+      
+      "settings.file_handler.ignore_names": "",
+      "settings.file_handler.dirs_as_jobs": true,
+      "settings.file_handler.add_time_job_name": true,
+      "settings.file_handler.job_name_template": "%Y-%m-%d-%{name}"
     };
 
     // Save settings after close
@@ -114,7 +115,7 @@ class App extends React.Component {
             onChange={this._settingsChanged}
             onPaneLeave={this._leavePaneHandler}
           >
-            <SettingsMenu headline="General Settings" />
+            <SettingsMenu headline="GDrive Dourmouse Settings" />
             <SettingsContent header>
               <SettingsPage handler="/settings/general">
                 <fieldset className="form-group">
@@ -175,29 +176,65 @@ class App extends React.Component {
                   </div>
                 </fieldset>
               </SettingsPage>
+              
               <SettingsPage handler="/settings/files_handling">
                 <fieldset className="form-group">
-                  <label htmlFor="profileFirstname">Firstname: </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="mysettings.profile.firstname"
-                    placeholder="Firstname"
-                    id="profileFirstname"
-                    onChange={this._settingsChanged}
-                    defaultValue={settings["mysettings.profile.firstname"]}
-                  />
+                  <div className="input-group2">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      name="settings.file_handler.dirs_as_jobs"
+                      id="file_handler.dirs_as_jobs"
+                      onChange={this._settingsChanged}
+                      checked={settings["settings.file_handler.dirs_as_jobs"]}
+                    />
+                    <label 
+                      className="form-check-label" 
+                      htmlFor="file_handler.dirs_as_jobs"
+                    >Treat top-level directories as separate jobs </label>
+                  </div>
                 </fieldset>
                 <fieldset className="form-group">
-                  <label htmlFor="profileLastname">Lastname: </label>
+                  <div className="input-group2">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      name="settings.file_handler.add_time_job_name"
+                      id="file_handler.add_time_job_name"
+                      onChange={this._settingsChanged}
+                      checked={settings["settings.file_handler.add_time_job_name"]}
+                    />
+                    <label 
+                      className="form-check-label" 
+                      htmlFor="file_handler.add_time_job_name"
+                    >Add date and time to a job name </label>
+                  </div>
+                </fieldset>
+                <fieldset className="form-group">
+                  <label htmlFor="file_handler.job_name_template">Job name template: </label>
+                  <br/>
+                  <label className="label-note">See datetime.strftime() for available format codes, plus %{name} stands for original job (directory) name</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="mysettings.profile.lastname"
-                    placeholder="Lastname"
-                    id="profileLastname"
+                    name="settings.file_handler.job_name_template"
+                    placeholder="%Y-%m-%d-%H:%M:%S-%{name}"
+                    id="file_handler.job_name_template"
                     onChange={this._settingsChanged}
-                    defaultValue={settings["mysettings.profile.lastname"]}
+                    defaultValue={settings["settings.file_handler.job_name_template"]}
+                  />
+                </fieldset>
+                
+                <fieldset className="form-group">
+                  <label htmlFor="file_handler.ignore_names">Ignore file names: </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    name="settings.file_handler.ignore_names"
+                    placeholder="Coma-separated list of file names"
+                    id="file_handler.ignore_names"
+                    onChange={this._settingsChanged}
+                    defaultValue={settings["settings.file_handler.ignore_names"]}
                   />
                 </fieldset>
                 <fieldset className="form-group">

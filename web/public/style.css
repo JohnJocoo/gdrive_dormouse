@@ -145,6 +145,10 @@ textarea.form-control {
     resize: vertical;
 }
 
+label.form-check-label {
+  margin-left: 10px;
+}
+
 form .settings-close {
   float: left;
   margin-left: -10px;
