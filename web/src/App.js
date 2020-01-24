@@ -1,5 +1,7 @@
 import React from "react";
 import {SettingsPane, SettingsPage, SettingsContent, SettingsMenu} from 'react-settings-pane';
+import axios from "axios";
+import Notifications, {notify} from 'react-notify-toast';
 
 class App extends React.Component {
   constructor(props) {
@@ -15,7 +17,8 @@ class App extends React.Component {
       "settings.file_handler.ignore_names": "",
       "settings.file_handler.dirs_as_jobs": true,
       "settings.file_handler.add_time_job_name": true,
-      "settings.file_handler.job_name_template": "%Y-%m-%d-%{name}"
+      "settings.file_handler.job_name_template": "%Y-%m-%d-%{name}",
+      "settings.file_handler.partition": "general_type"
     };
 
     // Save settings after close
@@ -24,13 +27,30 @@ class App extends React.Component {
 
       if (wasSaved && newSettings !== oldSettings) {
         // do something with the settings, e.g. save via ajax.
+        axios.post("/api/v1.0/set-settings", newSettings)
+            .then(function (response) {
+                notify.show("Settings saved");
+            })
+            .catch(function (error) {
+                notify.show("Failed to save settings: " + error.message, "error");
+            });
       }
-
-      this.hidePrefs();
     };
 
     // React if a single setting changed
-    this._settingsChanged = ev => {};
+    this._settingsChanged = ev => {
+        let getValue = ev => {
+            if (el.type.toLowerCase() == "checkbox") {
+                return el.checked;    
+            } 
+            return el.value;
+        };
+        
+        let el = ev.target;
+        if (el.tagName.toUpperCase() == "INPUT") {
+            this.state[el.name] = getValue(el);
+        }
+    };
     
     this._clearGDriveCreds = ev => {};
     
@@ -51,14 +71,6 @@ class App extends React.Component {
         url: "/settings/about"
       }
     ];
-  }
-
-  hidePrefs() {
-    this.prefs.className = "md-modal";
-  }
-
-  showPrefs() {
-    this.prefs.className = "md-modal show";
   }
 
   render() {
@@ -107,6 +119,7 @@ class App extends React.Component {
     // Return your Settings Pane
     return (
       <div className="md-root">
+        <Notifications />
         <div ref={ref => (this.prefs = ref)} className="md-modal show">
           <SettingsPane
             items={this._menu}
@@ -115,7 +128,7 @@ class App extends React.Component {
             onChange={this._settingsChanged}
             onPaneLeave={this._leavePaneHandler}
           >
-            <SettingsMenu headline="GDrive Dourmouse Settings" />
+            <SettingsMenu headline="GDrive Dormouse Settings" />
             <SettingsContent header>
               <SettingsPage handler="/settings/general">
                 <fieldset className="form-group">
@@ -186,7 +199,7 @@ class App extends React.Component {
                       name="settings.file_handler.dirs_as_jobs"
                       id="file_handler.dirs_as_jobs"
                       onChange={this._settingsChanged}
-                      checked={settings["settings.file_handler.dirs_as_jobs"]}
+                      defaultChecked={settings["settings.file_handler.dirs_as_jobs"]}
                     />
                     <label 
                       className="form-check-label" 
@@ -202,7 +215,7 @@ class App extends React.Component {
                       name="settings.file_handler.add_time_job_name"
                       id="file_handler.add_time_job_name"
                       onChange={this._settingsChanged}
-                      checked={settings["settings.file_handler.add_time_job_name"]}
+                      defaultChecked={settings["settings.file_handler.add_time_job_name"]}
                     />
                     <label 
                       className="form-check-label" 
@@ -213,7 +226,7 @@ class App extends React.Component {
                 <fieldset className="form-group">
                   <label htmlFor="file_handler.job_name_template">Job name template: </label>
                   <br/>
-                  <label className="label-note">See datetime.strftime() for available format codes, plus %{name} stands for original job (directory) name</label>
+                  <label className="label-note">See datetime.strftime() for available format codes, plus {"%{name}"} stands for original job (directory) name</label>
                   <input
                     type="text"
                     className="form-control"
@@ -224,7 +237,6 @@ class App extends React.Component {
                     defaultValue={settings["settings.file_handler.job_name_template"]}
                   />
                 </fieldset>
-                
                 <fieldset className="form-group">
                   <label htmlFor="file_handler.ignore_names">Ignore file names: </label>
                   <input
@@ -238,30 +250,38 @@ class App extends React.Component {
                   />
                 </fieldset>
                 <fieldset className="form-group">
-                  <label htmlFor="profileBiography">Biography: </label>
-                  <textarea
-                    className="form-control"
-                    name="mysettings.profile.biography"
-                    placeholder="Biography"
-                    id="profileBiography"
-                    onChange={this._settingsChanged}
-                    defaultValue={settings["mysettings.profile.biography"]}
-                  />
-                </fieldset>
-                <fieldset className="form-group">
-                  <label htmlFor="profileColor">Color-Theme: </label>
+                  <label htmlFor="file_handler.partition">Files partition: </label>
                   <select
-                    name="mysettings.general.color-theme"
-                    id="profileColor"
+                    name="settings.file_handler.partition"
+                    id="file_handler.partition"
                     className="form-control"
-                    defaultValue={settings["mysettings.general.color-theme"]}
+                    onChange={this._settingsChanged}
+                    defaultValue={settings["settings.file_handler.partition"]}
                   >
-                    <option value="blue">Blue</option>
-                    <option value="red">Red</option>
-                    <option value="purple">Purple</option>
-                    <option value="orange">Orange</option>
+                    <option value="none">None (leave folder structure untouched)</option>
+                    <option value="extention">By file extention (use extention as directory name)</option>
+                    <option value="general_type">By generic type (jpeg, raw, video, other)</option>
                   </select>
                 </fieldset>
+              </SettingsPage>
+              
+              <SettingsPage handler="/settings/about">
+              <div className="page-about">
+              <br/>
+              &nbsp;&nbsp;Google Drive Dormouse as background upload daemon to upload your files
+              (ex. images, videos, other files) to your Google Drive. It is designed to be 
+              reliable uploader for large amount of files and unreliable network connection. 
+              <br/>
+              &nbsp;&nbsp;GDrive Dormouse will always retry upload or schedule retry for later.
+              It will wait for time defined in settings until no new files in monitoring 
+              folder added or existed modified. Then upload job will be created.
+              <br/>
+              <br/>
+              <a href="https://github.com/JohnJocoo/gdrive_dormouse">GitHub page</a>
+              <br/>
+              <br/>
+              Version {document.getElementById("_context_version").textContent}
+              </div>
               </SettingsPage>
             </SettingsContent>
           </SettingsPane>
