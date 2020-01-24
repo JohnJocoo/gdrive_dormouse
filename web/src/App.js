@@ -52,9 +52,25 @@ class App extends React.Component {
         }
     };
     
-    this._clearGDriveCreds = ev => {};
+    this._clearGDriveCreds = ev => {
+        axios.post("/api/v1.0/clear-gdrive-creds", "")
+            .then(function (response) {
+                notify.show("Credentials were removed");
+            })
+            .catch(function (error) {
+                notify.show("Failed to clear credentials: " + error.message, "error");
+            });
+    };
     
-    this._loginToGDrive = ev => {};
+    this._loginToGDrive = ev => {
+        axios.post("/api/v1.0/start-gdrive-auth", "")
+            .then(function (response) {
+                notify.show("Will open authentication screen shortly...");
+            })
+            .catch(function (error) {
+                notify.show("Failed to request authentication: " + error.message, "error");
+            });    
+    };
 
     // Define your menu
     this._menu = [
@@ -71,6 +87,8 @@ class App extends React.Component {
         url: "/settings/about"
       }
     ];
+    
+    setInterval(function(){ axios.get("/api/v1.0/alive").then(function (response) {}) }, 1000);
   }
 
   render() {
