@@ -25,29 +25,39 @@ class App extends React.Component {
     this._leavePaneHandler = (wasSaved, newSettings, oldSettings) => {
       // "wasSaved" indicates wheather the pane was just closed or the save button was clicked.
 
-      if (wasSaved && newSettings !== oldSettings) {
-        // do something with the settings, e.g. save via ajax.
-        axios.post("/api/v1.0/set-settings", newSettings)
-            .then(function (response) {
-                notify.show("Settings saved");
-            })
-            .catch(function (error) {
-                notify.show("Failed to save settings: " + error.message, "error");
-            });
+      if (wasSaved) {
+          // do something with the settings, e.g. save via ajax.
+          axios.post("/api/v1.0/set-settings", newSettings)
+              .then(function (response) {
+                  notify.show("Settings saved", "success");
+              })
+              .catch(function (error) {
+                  notify.show("Failed to save settings: " + error.message, "error");
+              });
+      } else {
+          axios.get("/api/v1.0/quit")
+              .then(function (response) {
+                  window.open(window.location, '_self').close();
+              })
+              .catch(function (error) {
+                  window.open(window.location, '_self').close();
+              });
+          //window.close();
       }
+      
     };
 
     // React if a single setting changed
     this._settingsChanged = ev => {
         let getValue = ev => {
-            if (el.type.toLowerCase() == "checkbox") {
+            if (el.type.toLowerCase() === "checkbox") {
                 return el.checked;    
             } 
             return el.value;
         };
         
         let el = ev.target;
-        if (el.tagName.toUpperCase() == "INPUT") {
+        if (el.tagName.toUpperCase() === "INPUT") {
             this.state[el.name] = getValue(el);
         }
     };
@@ -55,7 +65,7 @@ class App extends React.Component {
     this._clearGDriveCreds = ev => {
         axios.post("/api/v1.0/clear-gdrive-creds", "")
             .then(function (response) {
-                notify.show("Credentials were removed");
+                notify.show("Credentials were removed", "success");
             })
             .catch(function (error) {
                 notify.show("Failed to clear credentials: " + error.message, "error");
@@ -84,7 +94,7 @@ class App extends React.Component {
       },
       {
         title: "About",
-        url: "/settings/about"
+        url: "/about"
       }
     ];
     
@@ -283,7 +293,7 @@ class App extends React.Component {
                 </fieldset>
               </SettingsPage>
               
-              <SettingsPage handler="/settings/about">
+              <SettingsPage handler="/about">
               <div className="page-about">
               <br/>
               &nbsp;&nbsp;Google Drive Dormouse as background upload daemon to upload your files
