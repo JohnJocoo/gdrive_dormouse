@@ -20,6 +20,10 @@ class App extends React.Component {
       "settings.file_handler.job_name_template": "%Y-%m-%d-%{name}",
       "settings.file_handler.partition": "general_type"
     };
+    
+    this.settingsConverter = {
+      "settings.monitoring.wait_time": val => {return Number(val);}
+    };
 
     // Save settings after close
     this._leavePaneHandler = (wasSaved, newSettings, oldSettings) => {
@@ -58,7 +62,12 @@ class App extends React.Component {
         
         let el = ev.target;
         if (el.tagName.toUpperCase() === "INPUT") {
-            this.state[el.name] = getValue(el);
+            let value = getValue(el);
+            if (el.name in this.settingsConverter) {
+                this.state[el.name] = this.settingsConverter[el.name](value);
+            } else {
+                this.state[el.name] = value;
+            }
         }
     };
     
