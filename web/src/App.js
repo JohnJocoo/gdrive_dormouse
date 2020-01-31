@@ -111,6 +111,13 @@ class App extends React.Component {
   }
 
   render() {
+    try {
+      this.state = JSON.parse(document.getElementById("_context_default_settings").textContent)
+    }
+    catch(err) {
+      console.log(err.message)
+    }
+      
     // Get settings
     let settings = this.state;
 

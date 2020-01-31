@@ -1,0 +1,18 @@
+{
+    "settings": {  
+        "monitoring": { 
+            "path": "~/Pictures/UploadToGDrive", 
+            "wait_time": 5
+        },
+        "gdrive": {
+            "path": "/GDriveDormouse"
+        },
+        "file_handler": {
+            "ignore_names": ".DS_Store, Desktop.ini, Thumbs.db, .Spotlight-V100, .Trashes", 
+            "dirs_as_jobs": true, 
+            "add_time_job_name": true, 
+            "job_name_template": "%Y-%m-%d-%{name}", 
+            "partition": "general_type"
+        }
+    }
+}
