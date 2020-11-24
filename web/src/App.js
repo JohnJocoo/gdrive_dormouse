@@ -213,7 +213,7 @@ class App extends React.Component {
                 <fieldset className="form-group">
                   <label htmlFor="file_handler.job_name_template">Job name template: </label>
                   <br/>
-                  <label className="label-note">See datetime.strftime() for available format codes, plus %{name} stands for original job (directory) name</label>
+                  <label className="label-note">See datetime.strftime() for available format codes, and {"%{name}"} stands for original job (directory) name</label>
                   <input
                     type="text"
                     className="form-control"
@@ -224,7 +224,6 @@ class App extends React.Component {
                     defaultValue={settings["settings.file_handler.job_name_template"]}
                   />
                 </fieldset>
-                
                 <fieldset className="form-group">
                   <label htmlFor="file_handler.ignore_names">Ignore file names: </label>
                   <input
